@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Listing AI</title>
+<style>
+  :root { --bg:#faf7f2; --card:#fff; --ink:#2b2420; --muted:#7a6e66; --accent:#9c6b3f; --line:#e8e0d6; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap { max-width:900px; margin:0 auto; padding:24px 16px 60px; }
+  h1 { font-size:26px; margin:0 0 4px; }
+  p.sub { color:var(--muted); margin:0 0 20px; }
+  form, .out { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:600px){ .grid { grid-template-columns:1fr; } }
+  label { font-size:13px; color:var(--muted); display:block; margin-bottom:4px; }
+  input, textarea { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; }
+  textarea { min-height:60px; }
+  .full { grid-column:1/-1; }
+  #preview { max-height:180px; border-radius:8px; margin-top:8px; display:none; }
+  button { margin-top:16px; background:var(--accent); color:#fff; border:0; padding:12px 22px; border-radius:8px; font-size:15px; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .out { margin-top:20px; display:none; }
+  .field { border-top:1px solid var(--line); padding:14px 0; }
+  .field:first-child { border-top:0; }
+  .field h3 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 6px; display:flex; justify-content:space-between; }
+  .field h3 button { margin:0; padding:3px 10px; font-size:12px; background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .val { white-space:pre-wrap; word-break:break-word; }
+  .err { color:#b3261e; margin-top:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Listing AI</h1>
+  <p class="sub">Product photo + details daalo → poori SEO listing ready.</p>
+
+  <form id="f">
+    <div class="grid">
+      <div class="full">
+        <label>Product photo *</label>
+        <input type="file" name="image" accept="image/*" required id="img">
+        <img id="preview" alt="">
+      </div>
+      <div><label>Product type</label><input name="product_type" placeholder="e.g. Kundan necklace set"></div>
+      <div><label>Material</label><input name="material" placeholder="e.g. Gold-plated brass"></div>
+      <div><label>Color</label><input name="color" placeholder="e.g. Emerald green"></div>
+      <div><label>Price (₹)</label><input name="price" placeholder="e.g. 1499"></div>
+      <div><label>Occasion</label><input name="occasion" placeholder="e.g. Wedding, Diwali"></div>
+      <div><label>Brand name</label><input name="brand_name" placeholder="e.g. Madhushrea Collection"></div>
+      <div class="full"><label>Extra notes</label><textarea name="extra_notes" placeholder="Kuch special? e.g. comes with earrings, anti-tarnish"></textarea></div>
+    </div>
+    <button type="submit" id="go">Generate listing</button>
+    <div class="err" id="err"></div>
+  </form>
+
+  <div class="out" id="out"></div>
+</div>
+
+<script>
+const img = document.getElementById('img'), preview = document.getElementById('preview');
+img.addEventListener('change', () => {
+  const f = img.files[0]; if (!f) return;
+  preview.src = URL.createObjectURL(f); preview.style.display = 'block';
+});
+
+const LABELS = {
+  title:'Title', description_html:'Description (HTML)', seo_meta_title:'SEO meta title',
+  seo_meta_description:'SEO meta description', url_handle:'URL handle', focus_keyword:'Focus keyword',
+  long_tail_keywords:'Long-tail keywords', image_alt_text:'Image alt text', tags:'Tags',
+  instagram_caption:'Instagram caption', pinterest_description:'Pinterest description',
+  reel_hook:'Reel hook', hashtags:'Hashtags', festival_angle:'Festival angle', faq:'FAQ'
+};
+
+function fmt(k, v) {
+  if (k === 'hashtags' && Array.isArray(v)) return v.map(h => '#' + h.replace(/^#/, '')).join(' ');
+  if (k === 'faq' && Array.isArray(v)) return v.map(x => `Q: ${x.q}\nA: ${x.a}`).join('\n\n');
+  if (Array.isArray(v)) return v.join(', ');
+  return String(v ?? '');
+}
+
+function render(data) {
+  const out = document.getElementById('out'); out.innerHTML = '';
+  for (const k of Object.keys(LABELS)) {
+    const text = fmt(k, data[k]); if (!text) continue;
+    const d = document.createElement('div'); d.className = 'field';
+    const h = document.createElement('h3'); h.textContent = LABELS[k];
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Copy';
+    b.onclick = () => { navigator.clipboard.writeText(text); b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1200); };
+    h.appendChild(b);
+    const v = document.createElement('div'); v.className = 'val'; v.textContent = text;
+    d.append(h, v); out.appendChild(d);
+  }
+  out.style.display = 'block';
+}
+
+document.getElementById('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const go = document.getElementById('go'), err = document.getElementById('err');
+  err.textContent = ''; go.disabled = true; go.textContent = 'Generating…';
+  try {
+    const r = await fetch('/api/generate', { method:'POST', body:new FormData(e.target) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || 'Error');
+    render(j);
+  } catch (x) { err.textContent = x.message; }
+  finally { go.disabled = false; go.textContent = 'Generate listing'; }
+});
+</script>
+</body>
+</html>
