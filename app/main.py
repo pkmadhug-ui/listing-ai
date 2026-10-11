@@ -11,7 +11,7 @@ from .prompt import SYSTEM_PROMPT, build_user_prompt
 load_dotenv()
 
 API_KEY = os.getenv("GEMINI_API_KEY", "")
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
