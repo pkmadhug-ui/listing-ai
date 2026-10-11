@@ -27,6 +27,10 @@
   .field h3 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 6px; display:flex; justify-content:space-between; }
   .field h3 button { margin:0; padding:3px 10px; font-size:12px; background:transparent; color:var(--accent); border:1px solid var(--accent); }
   .val { white-space:pre-wrap; word-break:break-word; }
+  .val.rich { white-space:normal; line-height:1.6; }
+  .val.rich p { margin:0 0 10px; }
+  .val.rich ul { margin:0 0 10px; padding-left:22px; }
+  .hint { font-size:12px; color:var(--muted); margin-top:6px; }
   .err { color:#b3261e; margin-top:12px; }
 </style>
 </head>
@@ -65,7 +69,7 @@ img.addEventListener('change', () => {
 });
 
 const LABELS = {
-  title:'Title', description_html:'Description (HTML)', seo_meta_title:'SEO meta title',
+  title:'Title', description_html:'Description', seo_meta_title:'SEO meta title',
   seo_meta_description:'SEO meta description', url_handle:'URL handle', focus_keyword:'Focus keyword',
   long_tail_keywords:'Long-tail keywords', image_alt_text:'Image alt text', tags:'Tags',
   instagram_caption:'Instagram caption', pinterest_description:'Pinterest description',
@@ -79,6 +83,23 @@ function fmt(k, v) {
   return String(v ?? '');
 }
 
+// AI ka HTML seedha page pe nahi daalte: sirf safe formatting tags rakhte hain.
+const SAFE_TAGS = new Set(['P','UL','OL','LI','STRONG','B','EM','I','BR']);
+function safeHtml(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const clean = node => {
+    for (const child of [...node.childNodes]) {
+      if (child.nodeType === 1) {
+        if (!SAFE_TAGS.has(child.tagName)) { child.replaceWith(document.createTextNode(child.textContent)); continue; }
+        [...child.attributes].forEach(a => child.removeAttribute(a.name));
+        clean(child);
+      } else if (child.nodeType !== 3) child.remove();
+    }
+  };
+  clean(doc.body);
+  return doc.body.innerHTML;
+}
+
 function render(data) {
   const out = document.getElementById('out'); out.innerHTML = '';
   for (const k of Object.keys(LABELS)) {
@@ -88,8 +109,18 @@ function render(data) {
     const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Copy';
     b.onclick = () => { navigator.clipboard.writeText(text); b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1200); };
     h.appendChild(b);
-    const v = document.createElement('div'); v.className = 'val'; v.textContent = text;
-    d.append(h, v); out.appendChild(d);
+    const v = document.createElement('div'); v.className = 'val';
+    if (k === 'description_html') {
+      v.classList.add('rich'); v.innerHTML = safeHtml(text);
+      b.textContent = 'Copy HTML';
+      b.onclick = () => { navigator.clipboard.writeText(text); b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy HTML', 1200); };
+      const hint = document.createElement('div'); hint.className = 'hint';
+      hint.textContent = 'Shopify mein: description box ke upar "<>" (Show HTML) button dabao, phir paste karo.';
+      d.append(h, v, hint);
+    } else {
+      v.textContent = text; d.append(h, v);
+    }
+    out.appendChild(d);
   }
   out.style.display = 'block';
 }
