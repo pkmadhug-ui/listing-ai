@@ -17,6 +17,14 @@ Product photo + basic details → complete Shopify listing (SEO title, descripti
 
 API key nahi daali toh app **demo mode** mein chalega (dummy output), taaki setup test ho sake.
 
+## 24x7 chalana (VPS pe, ek baar)
+
+```
+bash deploy/install-service.sh   # app ko background service bana deta hai
+bash deploy/update.sh            # baad mein naya code laane + restart ke liye
+journalctl -u listing-ai -f      # live logs
+```
+
 ## Invite codes
 
 App sirf invite code se chalta hai. Har code ki fixed limit hoti hai, taaki API ka kharcha control mein rahe.
