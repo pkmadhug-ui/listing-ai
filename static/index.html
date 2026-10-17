@@ -206,6 +206,10 @@ function render(data) {
     tabs.appendChild(t);
   });
   renderPanel(data[keys[0]]);
+  if (data._errors && data._errors.length) {
+    const failed = data._errors.map(e => PLATFORM_NAMES[e.split(':')[0]] || e.split(':')[0]).join(', ');
+    $('err').textContent = `${failed} ki listing nahi bani. Sirf woh platform chun ke dobara try karo.`;
+  }
   $('out').style.display = 'block';
   $('out').scrollIntoView({ behavior:'smooth' });
 }
