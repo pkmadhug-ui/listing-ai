@@ -2,6 +2,7 @@ import asyncio
 import io
 import json
 import os
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -17,6 +18,9 @@ API_KEY = os.getenv("GEMINI_API_KEY", "")
 MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 # "low" = fast. Quality kam lage toh .env mein GEMINI_THINKING=medium kar do. "off" = setting mat bhejo.
 THINKING = os.getenv("GEMINI_THINKING", "low").strip().lower()
+# Ek saath kitni AI calls. Free tier pe zyada calls ek saath bhejne se Google rok deta hai.
+PARALLEL = max(1, int(os.getenv("GEMINI_PARALLEL", "2")))
+CALL_TIMEOUT_SEC = int(os.getenv("GEMINI_TIMEOUT", "60"))
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_SIDE = 1024  # AI ko itni photo kaafi hai; badi photo sirf upload aur tokens badhati hai
 STATIC = Path(__file__).resolve().parent.parent / "static"
@@ -45,12 +49,23 @@ def shrink_image(data: bytes, mime: str) -> tuple[bytes, str]:
         return data, mime
 
 
+def log(msg: str) -> None:
+    print(f"[listing-ai {time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
 def call_gemini(image: bytes, mime: str, details: dict, platforms: list[str]) -> dict:
     global _thinking_supported
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=API_KEY)
+    # Ek call 60 sec se zyada na chale, aur error pe bas 1 baar chhota retry. Warna page atka rehta hai.
+    client = genai.Client(
+        api_key=API_KEY,
+        http_options=types.HttpOptions(
+            timeout=CALL_TIMEOUT_SEC * 1000,
+            retry_options=types.HttpRetryOptions(attempts=2, initial_delay=1.0, max_delay=4.0),
+        ),
+    )
     contents = [types.Part.from_bytes(data=image, mime_type=mime), build_user_prompt(details)]
 
     def run(with_thinking: bool):
@@ -68,22 +83,35 @@ def call_gemini(image: bytes, mime: str, details: dict, platforms: list[str]) ->
             ),
         )
 
+    name = ",".join(platforms)
     use_thinking = _thinking_supported and THINKING not in ("", "off")
+    start = time.time()
     try:
         resp = run(use_thinking)
     except Exception as e:  # noqa: BLE001
         if use_thinking and "think" in str(e).lower():
+            log(f"{name}: model ne thinking setting reject ki, bina uske try kar rahe hain")
             _thinking_supported = False
             resp = run(False)
         else:
+            log(f"{name}: FAILED after {time.time() - start:.1f}s -> {str(e)[:300]}")
             raise
+    log(f"{name}: done in {time.time() - start:.1f}s")
     return json.loads(resp.text)
 
 
 async def generate_all(image: bytes, mime: str, details: dict, platforms: list[str]) -> dict:
-    """Har platform ki alag call, sab ek saath (parallel). Total time = sabse slow wali call."""
-    tasks = [asyncio.to_thread(call_gemini, image, mime, details, [p]) for p in platforms]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    """Har platform ki alag call, ek saath max PARALLEL calls (free tier ki rate limit ka dhyan)."""
+    sem = asyncio.Semaphore(PARALLEL)
+
+    async def one(p: str):
+        async with sem:
+            return await asyncio.to_thread(call_gemini, image, mime, details, [p])
+
+    log(f"start: {platforms} (parallel={PARALLEL}, thinking={THINKING}, model={MODEL})")
+    t0 = time.time()
+    results = await asyncio.gather(*(one(p) for p in platforms), return_exceptions=True)
+    log(f"all done in {time.time() - t0:.1f}s")
     merged, errors = {}, []
     for p, r in zip(platforms, results):
         if isinstance(r, Exception):
