@@ -5,41 +5,60 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Listing AI</title>
 <style>
-  :root { --bg:#faf7f2; --card:#fff; --ink:#2b2420; --muted:#7a6e66; --accent:#9c6b3f; --line:#e8e0d6; }
+  :root { --bg:#faf7f2; --card:#fff; --ink:#2b2420; --muted:#7a6e66; --accent:#9c6b3f; --line:#e8e0d6; --soft:#f3ece3; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
   .wrap { max-width:900px; margin:0 auto; padding:24px 16px 60px; }
   h1 { font-size:26px; margin:0 0 4px; }
   p.sub { color:var(--muted); margin:0 0 20px; }
-  form, .out { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:600px){ .grid { grid-template-columns:1fr; } }
   label { font-size:13px; color:var(--muted); display:block; margin-bottom:4px; }
-  input, textarea { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; }
+  input[type=text], input:not([type]), input[type=file], textarea { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
   textarea { min-height:60px; }
   .full { grid-column:1/-1; }
   #preview { max-height:180px; border-radius:8px; margin-top:8px; display:none; }
-  button { margin-top:16px; background:var(--accent); color:#fff; border:0; padding:12px 22px; border-radius:8px; font-size:15px; cursor:pointer; }
+  button { background:var(--accent); color:#fff; border:0; padding:12px 22px; border-radius:8px; font-size:15px; cursor:pointer; }
   button:disabled { opacity:.6; cursor:wait; }
-  .out { margin-top:20px; display:none; }
+  .codebar { display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .codebar input { max-width:220px; text-transform:uppercase; }
+  .codebar button { padding:10px 16px; font-size:14px; }
+  .left { font-size:13px; color:var(--muted); }
+  .plats { display:flex; flex-wrap:wrap; gap:8px; }
+  .plats label { display:flex; align-items:center; gap:6px; margin:0; padding:8px 12px; border:1px solid var(--line); border-radius:999px; color:var(--ink); font-size:14px; cursor:pointer; background:#fff; }
+  .plats input { margin:0; accent-color:var(--accent); }
+  .go { margin-top:16px; }
+  .err { color:#b3261e; margin-top:12px; }
+  #out { margin-top:20px; display:none; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:-1px; }
+  .tab { background:var(--soft); color:var(--ink); border:1px solid var(--line); border-bottom:0; border-radius:10px 10px 0 0; padding:10px 16px; font-size:14px; }
+  .tab.on { background:var(--card); font-weight:600; }
+  .panel { border-top-left-radius:0; }
   .field { border-top:1px solid var(--line); padding:14px 0; }
-  .field:first-child { border-top:0; }
-  .field h3 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 6px; display:flex; justify-content:space-between; }
-  .field h3 button { margin:0; padding:3px 10px; font-size:12px; background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .field:first-child { border-top:0; padding-top:0; }
+  .field h3 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 6px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .field h3 span.n { text-transform:none; letter-spacing:0; font-weight:400; }
+  .field h3 button { padding:3px 10px; font-size:12px; background:transparent; color:var(--accent); border:1px solid var(--accent); }
   .val { white-space:pre-wrap; word-break:break-word; }
   .val.rich { white-space:normal; line-height:1.6; }
   .val.rich p { margin:0 0 10px; }
   .val.rich ul { margin:0 0 10px; padding-left:22px; }
   .hint { font-size:12px; color:var(--muted); margin-top:6px; }
-  .err { color:#b3261e; margin-top:12px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Listing AI</h1>
-  <p class="sub">Product photo + details daalo → poori SEO listing ready.</p>
+  <p class="sub">Ek photo daalo → Shopify, Meesho, Flipkart, Amazon sabki listing ready.</p>
 
-  <form id="f">
+  <form id="f" class="card">
+    <div class="codebar">
+      <input name="code" id="code" placeholder="Invite code" autocomplete="off">
+      <button type="button" id="checkBtn">Check</button>
+      <span class="left" id="left"></span>
+    </div>
+
     <div class="grid">
       <div class="full">
         <label>Product photo *</label>
@@ -53,33 +72,78 @@
       <div><label>Occasion</label><input name="occasion" placeholder="e.g. Wedding, Diwali"></div>
       <div><label>Brand name</label><input name="brand_name" placeholder="e.g. Madhushrea Collection"></div>
       <div class="full"><label>Extra notes</label><textarea name="extra_notes" placeholder="Kuch special? e.g. comes with earrings, anti-tarnish"></textarea></div>
+      <div class="full">
+        <label>Kis platform ke liye chahiye?</label>
+        <div class="plats" id="plats">
+          <label><input type="checkbox" value="shopify" checked> Shopify</label>
+          <label><input type="checkbox" value="social" checked> Instagram / Social</label>
+          <label><input type="checkbox" value="meesho"> Meesho</label>
+          <label><input type="checkbox" value="flipkart"> Flipkart</label>
+          <label><input type="checkbox" value="amazon"> Amazon</label>
+        </div>
+      </div>
     </div>
-    <button type="submit" id="go">Generate listing</button>
+    <button type="submit" id="go" class="go">Generate listing</button>
     <div class="err" id="err"></div>
   </form>
 
-  <div class="out" id="out"></div>
+  <div id="out">
+    <div class="tabs" id="tabs"></div>
+    <div class="card panel" id="panel"></div>
+  </div>
 </div>
 
 <script>
-const img = document.getElementById('img'), preview = document.getElementById('preview');
-img.addEventListener('change', () => {
-  const f = img.files[0]; if (!f) return;
-  preview.src = URL.createObjectURL(f); preview.style.display = 'block';
-});
-
-const LABELS = {
-  title:'Title', description_html:'Description', seo_meta_title:'SEO meta title',
-  seo_meta_description:'SEO meta description', url_handle:'URL handle', focus_keyword:'Focus keyword',
-  long_tail_keywords:'Long-tail keywords', image_alt_text:'Image alt text', tags:'Tags',
-  instagram_caption:'Instagram caption', pinterest_description:'Pinterest description',
-  reel_hook:'Reel hook', hashtags:'Hashtags', festival_angle:'Festival angle', faq:'FAQ'
+// ---- small helpers -------------------------------------------------------
+const $ = id => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
 
+$('img').addEventListener('change', () => {
+  const f = $('img').files[0]; if (!f) return;
+  $('preview').src = URL.createObjectURL(f); $('preview').style.display = 'block';
+});
+
+// ---- invite code ---------------------------------------------------------
+$('code').value = store.get('la_code') || '';
+function showLeft(n) { $('left').textContent = n == null ? '' : `${n} listings bachi hain`; }
+
+$('checkBtn').onclick = async () => {
+  const fd = new FormData(); fd.append('code', $('code').value);
+  try {
+    const r = await fetch('/api/check-code', { method:'POST', body:fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail);
+    store.set('la_code', $('code').value.trim().toUpperCase());
+    showLeft(j.remaining); $('err').textContent = '';
+  } catch (x) { showLeft(null); $('err').textContent = x.message; }
+};
+
+// ---- platform choice is remembered --------------------------------------
+const plats = [...document.querySelectorAll('#plats input')];
+const savedPlats = (store.get('la_plats') || '').split(',').filter(Boolean);
+if (savedPlats.length) plats.forEach(c => c.checked = savedPlats.includes(c.value));
+
+// ---- rendering -----------------------------------------------------------
+const PLATFORM_NAMES = { shopify:'Shopify', social:'Social', meesho:'Meesho', flipkart:'Flipkart', amazon:'Amazon' };
+const LABELS = {
+  title:'Title', description_html:'Description', description:'Description',
+  seo_meta_title:'SEO meta title', seo_meta_description:'SEO meta description', url_handle:'URL handle',
+  focus_keyword:'Focus keyword', long_tail_keywords:'Long-tail keywords', image_alt_text:'Image alt text', tags:'Tags',
+  instagram_caption:'Instagram caption', facebook_post:'Facebook post', pinterest_description:'Pinterest description',
+  reel_hook:'Reel hook', hashtags:'Hashtags', festival_angle:'Festival angle', faq:'FAQ',
+  key_features:'Key features', bullet_points:'Bullet points', search_keywords:'Search keywords',
+  backend_search_terms:'Backend search terms',
+};
+// Inko ek line mein comma se; baaki lists alag lines mein.
+const INLINE_LISTS = new Set(['long_tail_keywords','tags','search_keywords']);
+
 function fmt(k, v) {
-  if (k === 'hashtags' && Array.isArray(v)) return v.map(h => '#' + h.replace(/^#/, '')).join(' ');
+  if (k === 'hashtags' && Array.isArray(v)) return v.map(h => '#' + String(h).replace(/^#/, '')).join(' ');
   if (k === 'faq' && Array.isArray(v)) return v.map(x => `Q: ${x.q}\nA: ${x.a}`).join('\n\n');
-  if (Array.isArray(v)) return v.join(', ');
+  if (Array.isArray(v)) return INLINE_LISTS.has(k) ? v.join(', ') : v.map(x => '• ' + x).join('\n');
   return String(v ?? '');
 }
 
@@ -100,42 +164,69 @@ function safeHtml(html) {
   return doc.body.innerHTML;
 }
 
-function render(data) {
-  const out = document.getElementById('out'); out.innerHTML = '';
-  for (const k of Object.keys(LABELS)) {
-    const text = fmt(k, data[k]); if (!text) continue;
-    const d = document.createElement('div'); d.className = 'field';
-    const h = document.createElement('h3'); h.textContent = LABELS[k];
-    const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Copy';
-    b.onclick = () => { navigator.clipboard.writeText(text); b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1200); };
-    h.appendChild(b);
-    const v = document.createElement('div'); v.className = 'val';
-    if (k === 'description_html') {
-      v.classList.add('rich'); v.innerHTML = safeHtml(text);
-      b.textContent = 'Copy HTML';
-      b.onclick = () => { navigator.clipboard.writeText(text); b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy HTML', 1200); };
-      const hint = document.createElement('div'); hint.className = 'hint';
-      hint.textContent = 'Shopify mein: description box ke upar "<>" (Show HTML) button dabao, phir paste karo.';
-      d.append(h, v, hint);
-    } else {
-      v.textContent = text; d.append(h, v);
-    }
-    out.appendChild(d);
-  }
-  out.style.display = 'block';
+function copyBtn(text, label = 'Copy') {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+  b.onclick = () => { navigator.clipboard.writeText(text); b.textContent = 'Copied'; setTimeout(() => b.textContent = label, 1200); };
+  return b;
 }
 
-document.getElementById('f').addEventListener('submit', async e => {
+function renderPanel(block) {
+  const panel = $('panel'); panel.innerHTML = '';
+  for (const [k, v] of Object.entries(block || {})) {
+    const text = fmt(k, v); if (!text) continue;
+    const d = document.createElement('div'); d.className = 'field';
+    const h = document.createElement('h3');
+    const name = document.createElement('span'); name.textContent = LABELS[k] || k.replace(/_/g, ' ');
+    if (typeof v === 'string' && /title|search_terms/.test(k)) {
+      const n = document.createElement('span'); n.className = 'n'; n.textContent = ` · ${v.length} chars`; name.appendChild(n);
+    }
+    h.appendChild(name);
+    const val = document.createElement('div'); val.className = 'val';
+    if (k === 'description_html') {
+      h.appendChild(copyBtn(text, 'Copy HTML'));
+      val.classList.add('rich'); val.innerHTML = safeHtml(text);
+      const hint = document.createElement('div'); hint.className = 'hint';
+      hint.textContent = 'Shopify mein: description box ke upar "<>" (Show HTML) button dabao, phir paste karo.';
+      d.append(h, val, hint);
+    } else {
+      h.appendChild(copyBtn(k === 'bullet_points' || k === 'key_features' ? v.join('\n') : text));
+      val.textContent = text; d.append(h, val);
+    }
+    panel.appendChild(d);
+  }
+}
+
+function render(data) {
+  const keys = Object.keys(PLATFORM_NAMES).filter(p => data[p]);
+  const tabs = $('tabs'); tabs.innerHTML = '';
+  keys.forEach((p, i) => {
+    const t = document.createElement('button'); t.type = 'button'; t.className = 'tab' + (i ? '' : ' on');
+    t.textContent = PLATFORM_NAMES[p];
+    t.onclick = () => { [...tabs.children].forEach(x => x.classList.remove('on')); t.classList.add('on'); renderPanel(data[p]); };
+    tabs.appendChild(t);
+  });
+  renderPanel(data[keys[0]]);
+  $('out').style.display = 'block';
+  $('out').scrollIntoView({ behavior:'smooth' });
+}
+
+// ---- submit --------------------------------------------------------------
+$('f').addEventListener('submit', async e => {
   e.preventDefault();
-  const go = document.getElementById('go'), err = document.getElementById('err');
-  err.textContent = ''; go.disabled = true; go.textContent = 'Generating…';
+  const chosen = plats.filter(c => c.checked).map(c => c.value);
+  if (!chosen.length) { $('err').textContent = 'Kam se kam ek platform chuno.'; return; }
+  store.set('la_plats', chosen.join(','));
+  const fd = new FormData(e.target); fd.append('platforms', chosen.join(','));
+  $('err').textContent = ''; $('go').disabled = true; $('go').textContent = 'Generating… (20-40 sec)';
   try {
-    const r = await fetch('/api/generate', { method:'POST', body:new FormData(e.target) });
+    const r = await fetch('/api/generate', { method:'POST', body:fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || 'Error');
+    store.set('la_code', $('code').value.trim().toUpperCase());
+    if (j._remaining != null) showLeft(j._remaining);
     render(j);
-  } catch (x) { err.textContent = x.message; }
-  finally { go.disabled = false; go.textContent = 'Generate listing'; }
+  } catch (x) { $('err').textContent = x.message; }
+  finally { $('go').disabled = false; $('go').textContent = 'Generate listing'; }
 });
 </script>
 </body>

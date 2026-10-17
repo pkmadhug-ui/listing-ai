@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from .prompt import SYSTEM_PROMPT, build_user_prompt
+from . import codes
+from .prompt import DEFAULT_PLATFORMS, PLATFORMS, build_system_prompt, build_user_prompt
 
 load_dotenv()
 
@@ -18,7 +19,7 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
 app = FastAPI(title="Listing AI")
 
 
-def call_gemini(image: bytes, mime: str, details: dict) -> dict:
+def call_gemini(image: bytes, mime: str, details: dict, platforms: list[str]) -> dict:
     from google import genai
     from google.genai import types
 
@@ -27,7 +28,7 @@ def call_gemini(image: bytes, mime: str, details: dict) -> dict:
         model=MODEL,
         contents=[types.Part.from_bytes(data=image, mime_type=mime), build_user_prompt(details)],
         config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
+            system_instruction=build_system_prompt(platforms),
             response_mime_type="application/json",
             temperature=0.7,
         ),
@@ -35,27 +36,15 @@ def call_gemini(image: bytes, mime: str, details: dict) -> dict:
     return json.loads(resp.text)
 
 
-def mock_listing(details: dict) -> dict:
+def mock_listing(details: dict, platforms: list[str]) -> dict:
     """API key na ho tab bhi app test ho sake."""
     name = details.get("product_type") or "Product"
-    return {
-        "title": f"[DEMO] {name} — add GEMINI_API_KEY in .env for real output",
-        "description_html": "<p>Demo mode. Real description will appear once the API key is set.</p>",
-        "seo_meta_title": f"{name} | Demo",
-        "seo_meta_description": "Demo mode output.",
-        "url_handle": name.lower().replace(" ", "-"),
-        "focus_keyword": name.lower(),
-        "long_tail_keywords": [],
-        "image_alt_text": name,
-        "tags": [],
-        "instagram_caption": "",
-        "pinterest_description": "",
-        "reel_hook": "",
-        "hashtags": [],
-        "festival_angle": "",
-        "faq": [],
-        "_demo": True,
-    }
+    note = "[DEMO] GEMINI_API_KEY .env mein daalo, tab asli listing aayegi"
+    out = {}
+    for p in platforms:
+        out[p] = {"title": f"{note} — {name}"} if p != "social" else {"instagram_caption": note}
+    out["_demo"] = True
+    return out
 
 
 @app.get("/")
@@ -68,9 +57,19 @@ def health():
     return {"ok": True, "mode": "live" if API_KEY else "demo", "model": MODEL}
 
 
+@app.post("/api/check-code")
+def check_code(code: str = Form("")):
+    ok, msg, left = codes.check(code)
+    if not ok:
+        raise HTTPException(403, msg)
+    return {"remaining": left}
+
+
 @app.post("/api/generate")
 async def generate(
     image: UploadFile = File(...),
+    code: str = Form(""),
+    platforms: str = Form(""),
     product_type: str = Form(""),
     material: str = Form(""),
     color: str = Form(""),
@@ -79,6 +78,12 @@ async def generate(
     brand_name: str = Form(""),
     extra_notes: str = Form(""),
 ):
+    ok, msg, _ = codes.check(code)
+    if not ok:
+        raise HTTPException(403, msg)
+
+    chosen = [p for p in platforms.split(",") if p in PLATFORMS] or DEFAULT_PLATFORMS
+
     if not (image.content_type or "").startswith("image/"):
         raise HTTPException(400, "Sirf image file upload karo (jpg/png/webp).")
     data = await image.read()
@@ -90,10 +95,14 @@ async def generate(
         occasion=occasion, brand_name=brand_name, extra_notes=extra_notes,
     )
     if not API_KEY:
-        return mock_listing(details)
+        return mock_listing(details, chosen)
     try:
-        return call_gemini(data, image.content_type, details)
+        result = call_gemini(data, image.content_type, details, chosen)
     except json.JSONDecodeError:
         raise HTTPException(502, "AI ne galat format diya, ek baar phir try karo.")
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, f"AI call fail hua: {e}")
+
+    # Sirf successful listing pe hi count kam hota hai.
+    result["_remaining"] = codes.use_one(code)
+    return result

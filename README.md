@@ -17,8 +17,21 @@ Product photo + basic details → complete Shopify listing (SEO title, descripti
 
 API key nahi daali toh app **demo mode** mein chalega (dummy output), taaki setup test ho sake.
 
+## Invite codes
+
+App sirf invite code se chalta hai. Har code ki fixed limit hoti hai, taaki API ka kharcha control mein rahe.
+Codes VPS pe `codes.json` mein save hote hain (GitHub pe nahi jaate).
+
+```
+python -m app.codes add Pankaj 500     # naya code, 500 listings
+python -m app.codes list               # saare codes aur usage
+python -m app.codes topup LA-XXXXXX 50 # limit badhao
+python -m app.codes off LA-XXXXXX      # code band karo
+```
+
 ## Roadmap
 - [x] Week 1: Photo + details → listing (Gemini)
-- [ ] Week 2: Shopify mein seedha product create
+- [x] Multi-platform: Shopify, Social, Meesho, Flipkart, Amazon + invite codes
+- [ ] Shopify mein seedha Draft product create
 - [ ] Week 3: Login + Razorpay subscription
 - [ ] Week 4: Landing page + marketing
