@@ -100,7 +100,7 @@ async def generate_all(image: bytes, mime: str, details: dict, platforms: list[s
 def mock_listing(details: dict, platforms: list[str]) -> dict:
     """API key na ho tab bhi app test ho sake."""
     name = details.get("product_type") or "Product"
-    note = "[DEMO] GEMINI_API_KEY .env mein daalo, tab asli listing aayegi"
+    note = "[DEMO] Add GEMINI_API_KEY in .env to get real listings"
     out = {}
     for p in platforms:
         out[p] = {"title": f"{note} — {name}"} if p != "social" else {"instagram_caption": note}
@@ -146,10 +146,10 @@ async def generate(
     chosen = [p for p in platforms.split(",") if p in PLATFORMS] or DEFAULT_PLATFORMS
 
     if not (image.content_type or "").startswith("image/"):
-        raise HTTPException(400, "Sirf image file upload karo (jpg/png/webp).")
+        raise HTTPException(400, "Please upload an image file (JPG, PNG or WEBP).")
     data = await image.read()
     if len(data) > MAX_IMAGE_BYTES:
-        raise HTTPException(400, "Image 8MB se chhoti honi chahiye.")
+        raise HTTPException(400, "Image must be smaller than 8 MB.")
 
     details = dict(
         product_type=product_type, material=material, color=color, price=price,
@@ -162,8 +162,8 @@ async def generate(
         result = await generate_all(small, mime, details, chosen)
     except Exception as e:  # noqa: BLE001
         if "Expecting" in str(e) or "JSON" in str(e):
-            raise HTTPException(502, "AI ne galat format diya, ek baar phir try karo.")
-        raise HTTPException(502, f"AI call fail hua: {e}")
+            raise HTTPException(502, "Something went wrong while writing the listing. Please try again.")
+        raise HTTPException(502, f"Could not generate the listing. Please try again. ({e})")
 
     # Sirf successful listing pe hi count kam hota hai.
     result["_remaining"] = codes.use_one(code)

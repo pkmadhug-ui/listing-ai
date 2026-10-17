@@ -37,14 +37,14 @@ def check(code: str) -> tuple[bool, str, int]:
     """(allowed, message, remaining)"""
     code = _norm(code)
     if not code:
-        return False, "Invite code daalo.", 0
+        return False, "Please enter your invite code.", 0
     with _lock:
         c = _load().get(code)
     if not c or not c.get("active", True):
-        return False, "Yeh invite code sahi nahi hai.", 0
+        return False, "This invite code is not valid.", 0
     left = c["limit"] - c["used"]
     if left <= 0:
-        return False, "Is code ki limit khatam ho gayi. Aur listings ke liye contact karein.", 0
+        return False, "You have used all listings on this code. Please contact us to get more.", 0
     return True, "", left
 
 

@@ -50,7 +50,7 @@
 <body>
 <div class="wrap">
   <h1>Listing AI</h1>
-  <p class="sub">Ek photo daalo → Shopify, Meesho, Flipkart, Amazon sabki listing ready.</p>
+  <p class="sub">Upload one product photo and get ready-to-use listings for Shopify, Meesho, Flipkart and Amazon.</p>
 
   <form id="f" class="card">
     <div class="codebar">
@@ -71,9 +71,9 @@
       <div><label>Price (₹)</label><input name="price" placeholder="e.g. 1499"></div>
       <div><label>Occasion</label><input name="occasion" placeholder="e.g. Wedding, Diwali"></div>
       <div><label>Brand name</label><input name="brand_name" placeholder="e.g. Madhushrea Collection"></div>
-      <div class="full"><label>Extra notes</label><textarea name="extra_notes" placeholder="Kuch special? e.g. comes with earrings, anti-tarnish"></textarea></div>
+      <div class="full"><label>Extra notes</label><textarea name="extra_notes" placeholder="Anything special? e.g. comes with earrings, anti-tarnish"></textarea></div>
       <div class="full">
-        <label>Kis platform ke liye chahiye?</label>
+        <label>Generate listings for</label>
         <div class="plats" id="plats">
           <label><input type="checkbox" value="shopify" checked> Shopify</label>
           <label><input type="checkbox" value="social" checked> Instagram / Social</label>
@@ -108,7 +108,7 @@ $('img').addEventListener('change', () => {
 
 // ---- invite code ---------------------------------------------------------
 $('code').value = store.get('la_code') || '';
-function showLeft(n) { $('left').textContent = n == null ? '' : `${n} listings bachi hain`; }
+function showLeft(n) { $('left').textContent = n == null ? '' : `${n} listings left`; }
 
 $('checkBtn').onclick = async () => {
   const fd = new FormData(); fd.append('code', $('code').value);
@@ -186,7 +186,7 @@ function renderPanel(block) {
       h.appendChild(copyBtn(text, 'Copy HTML'));
       val.classList.add('rich'); val.innerHTML = safeHtml(text);
       const hint = document.createElement('div'); hint.className = 'hint';
-      hint.textContent = 'Shopify mein: description box ke upar "<>" (Show HTML) button dabao, phir paste karo.';
+      hint.textContent = 'In Shopify, click the "<>" (Show HTML) button above the description box, then paste.';
       d.append(h, val, hint);
     } else {
       h.appendChild(copyBtn(k === 'bullet_points' || k === 'key_features' ? v.join('\n') : text));
@@ -208,7 +208,7 @@ function render(data) {
   renderPanel(data[keys[0]]);
   if (data._errors && data._errors.length) {
     const failed = data._errors.map(e => PLATFORM_NAMES[e.split(':')[0]] || e.split(':')[0]).join(', ');
-    $('err').textContent = `${failed} ki listing nahi bani. Sirf woh platform chun ke dobara try karo.`;
+    $('err').textContent = `Could not create the ${failed} listing. Select only that platform and try again.`;
   }
   $('out').style.display = 'block';
   $('out').scrollIntoView({ behavior:'smooth' });
@@ -218,10 +218,10 @@ function render(data) {
 $('f').addEventListener('submit', async e => {
   e.preventDefault();
   const chosen = plats.filter(c => c.checked).map(c => c.value);
-  if (!chosen.length) { $('err').textContent = 'Kam se kam ek platform chuno.'; return; }
+  if (!chosen.length) { $('err').textContent = 'Please select at least one platform.'; return; }
   store.set('la_plats', chosen.join(','));
   const fd = new FormData(e.target); fd.append('platforms', chosen.join(','));
-  $('err').textContent = ''; $('go').disabled = true; $('go').textContent = 'Generating… (20-40 sec)';
+  $('err').textContent = ''; $('go').disabled = true; $('go').textContent = 'Generating… (about 10-20 sec)';
   try {
     const r = await fetch('/api/generate', { method:'POST', body:fd });
     const j = await r.json();
